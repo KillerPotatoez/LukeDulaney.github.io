@@ -1,17 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="stylesheet.css">
+  <link rel="stylesheet" type="text/css" href="stylesheet.css">
+  <link rel="jscript" href="jscript.js">
+<script src="https://github.com/kswedberg/jquery-smooth-scroll/blob/master/jquery.smooth-scroll.min.js"></script>
+
 </head>
 <body>
-  <div class="page-header" id="page_header">
-    <h1>Luke Dulaney</h1>
-  </div>
-  <div class="btn-toobar pull-right">
-    <div class="btn-group">
-    <button id="work" type="button" class="btn">Work</button>
-    <button id="about" type="button" class="btn">About</button>
-  </div>
+<div id="header">
+    <nav id="nav_bar">
+      <ul class="nav_links">
+      <li style="float:left"><a class="active" href="#LukeDulaney">Luke Dulaney</a></li>
+      <li><a href="#contact" class="smoothScroll">Contact</a></li>
+      <li><a href="#about" class="smoothScroll">About</a></li>
+      <li><a href="#work" class="smoothScroll">Work</a></li>
+      </ul>
+      </nav>
+</div>
+
+<div id="page1">
+  <a id="LukeDulaney" class="smoothScroll"></a>
+    About page content goes here.
+</div>
+<div id="page2">
+  <a id="work" class="smoothScroll"></a>
+    Portfolio page content goes here.
+</div>
+<div id="page3">
+  <a id="about" class="smoothScroll"></a>
+    About page content goes here.
+</div>
+<div id="page4">
+  <a id="contact" class="smoothScroll"></a>
+    Contact page content goes here.
 </div>
   <p>Test test 123...</pi>
 </body>
