@@ -1,0 +1,24 @@
+#page_header {
+  background-color: white;
+  height: 45px;
+}
+#work {
+  background-color: white;
+  color: #015249;
+  height: 45px;
+  text-align: center;
+}
+#work:hover {
+  background-color: #015249;
+  color: #A5A5AF;
+}
+#about {
+  background-color: white;
+  color: #015249;
+  height: 45px;
+  text-align: center;
+}
+#about:hover {
+  background-color: #015249;
+  color: #A5A5AF;
+}
