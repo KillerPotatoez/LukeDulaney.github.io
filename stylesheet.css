@@ -5,23 +5,21 @@ body {
   margin-left: 0px;
 }
 #header {
-   background-color: white;
-   color: #FFF;
-   position: fixed;
-   width: 100%;
-   font-family: Cene
+    background-color: white;
+    color: #FFF;
+    position: fixed;
+    width: 100%;
+    font-family: Arial;
 }
 #nav_bar {
-	border: 0;
-	border-radius: 0px;
-	margin-bottom: 0;
+	  border: 0;
+	  border-radius: 0px;
     height: 60px;
     width: 100%;
     text-alignment: center;
 }
 
 .nav_links {
-    margin: 0;
     padding: 0;
     list-style-type: none;
     height: 60px;
@@ -44,28 +42,27 @@ body {
 li a:hover {
     background-color: #704140;
     color: white;
-    height: 60px;
 }
 .active {
   color: white;
   font-style: bold;
   float: left;
 }
-#page1{
+#LukeDulaney{
   background-color: #282828;
   height: 1100px;
 }
-#page2 {
+#work {
   background-color: #FF625E;
    height: 1100px;
    width: 100%;
 }
-#page3 {
+#about {
   background-color: #5983CF;
    height: 1100px;
    width: 100%;
 }
-#page4 {
+#contact {
   background-color: #ACB4C2;
    height: 750px;
    width: 100%;

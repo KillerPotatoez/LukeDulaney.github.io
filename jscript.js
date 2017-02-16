@@ -1,23 +1,14 @@
-$(document).ready(function() {
+$('a[href*=#]:not([href=#])').click(function() {
+    if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'')
+        || location.hostname == this.hostname) {
 
-  $(window).scroll(function () {
-      //if you hard code, then use console
-      //.log to determine when you want the
-      //nav bar to stick.
-      console.log($(window).scrollTop())
-    if ($(window).scrollTop() > 280) {
-      $('#nav_bar').addClass('navbar-fixed');
+        var target = $(this.hash);
+        target = target.length ? target : $('[name=' + this.hash.slice(1) +']');
+           if (target.length) {
+             $('html,body').animate({
+                 scrollTop: target.offset().top
+            }, 1000);
+            return false;
+        }
     }
-    if ($(window).scrollTop() < 281) {
-      $('#nav_bar').removeClass('navbar-fixed');
-    }
-  });
-});
-$('.smooth').on('click', function() {
-    $.smoothScroll({
-        scrollElement: $('body'),
-        scrollTarget: '#' + this.id
-    });
-
-    return false;
 });
