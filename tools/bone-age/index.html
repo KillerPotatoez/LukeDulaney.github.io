@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
+
+<!-- Enforced copy of the deployed CSP header. connect-src 'none' is the load-bearing
+     directive: it makes "your data never leaves this device" a browser-enforced fact
+     rather than a promise. frame-ancestors is header-only (ignored in meta), so the
+     _headers file at the repo root carries that one. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'none'; form-action 'none'">
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1c5cab">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bone Age">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Bone Age Tracker</title>
 <meta name="description" content="Track bone age x-ray results against chronological age. Everything stays on your device.">
 <style>
@@ -855,6 +869,16 @@ document.getElementById("clearBtn").addEventListener("click", function(){
   nameEl.value = ""; dobEl.value = "";
   resetForm(); render();
 });
+
+/* ---------- offline support ----------
+   Guarded on http(s): navigator.serviceWorker does not exist on file://, and the
+   app is meant to keep working when opened straight off disk. Failure here is
+   never fatal - it only costs offline use. */
+if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js", {scope:"./"})["catch"](function(){});
+  });
+}
 
 /* ---------- boot ---------- */
 load();

@@ -97,6 +97,13 @@ the whole answer.
 bothers a reviewer, move the CSS and JS to separate files and drop it — the tradeoff is a
 file that no longer works when emailed around as an attachment.)
 
+**The service worker needs its own, slightly looser CSP** (`connect-src 'self'`) so it can
+populate its cache. This is the trap: when two CSP headers apply to one response the browser
+enforces their **intersection**, so a blanket policy on `/*` would push `connect-src 'none'`
+onto `sw.js` and leave you with a worker that installs and then silently caches nothing.
+Offline would simply not work, with nothing in the console to say why. `_headers` therefore
+scopes each CSP to specific paths and keeps `/*` free of them. See `DEPLOY.md`.
+
 ### No third-party requests at all
 
 No Google Fonts, no CDN, no analytics script, no embedded map or video. Two reasons:

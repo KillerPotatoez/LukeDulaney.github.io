@@ -1,0 +1,14 @@
+# Cloudflare Pages / Netlify redirects.
+#
+# THE PRINTED QR CODE POINTS AT THE FIRST LINE AND NOTHING ELSE.
+# Books outlive deployments. Keep this indirection even while it looks pointless:
+# it is the only way to move, rename or retire the app without reprinting.
+#
+# Rules:
+#   - encode the short path in the QR code, never the versioned path
+#   - no version number, no query string, no URL shortener
+#   - 302, not 301: a 301 is cached by the browser effectively forever, which
+#     would defeat the entire purpose of having a redirect here
+
+/bone-age    /tools/bone-age/    302
+/boneage     /tools/bone-age/    302

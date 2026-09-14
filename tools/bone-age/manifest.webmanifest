@@ -1,0 +1,17 @@
+{
+  "name": "Bone Age Tracker",
+  "short_name": "Bone Age",
+  "description": "Track bone age x-ray results against chronological age. Everything stays on your device.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f9f9f7",
+  "theme_color": "#1c5cab",
+  "categories": ["health", "medical", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
