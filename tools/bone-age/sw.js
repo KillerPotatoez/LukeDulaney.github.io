@@ -8,7 +8,11 @@
  * launch rather than swapping under a tab that may have a half-typed reading
  * in the form.
  */
-var CACHE = "boneage-v1";
+/* build.sh replaces the placeholder with a hash of the precached files, so the
+   cache name changes exactly when the contents do and can never be forgotten.
+   Left unreplaced (opening this repo directly) it is still a valid cache name -
+   it simply never invalidates, which is correct for local work. */
+var CACHE = "boneage-__CACHE_VERSION__";
 
 var ASSETS = [
   "./",

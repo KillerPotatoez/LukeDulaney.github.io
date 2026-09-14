@@ -148,6 +148,11 @@ The realistic maintenance budget is a browser-compatibility check once a year.
 
 `index.html` is ~850 lines including CSS and JS. That is the whole app.
 
+(There is a `build.sh`, but it is a file-copy script with no toolchain and nothing
+installed: it assembles `dist/` so the internal docs and the unrelated portfolio files
+are not published, and stamps the service worker's cache name with a content hash. The
+app itself still runs with no build at all — open `index.html` and it works.)
+
 This is a deliberate choice, not laziness:
 
 - **It must outlive its own maintenance.** A React + Vite app nobody touches for three years

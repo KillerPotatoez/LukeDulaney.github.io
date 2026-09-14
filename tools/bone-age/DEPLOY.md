@@ -1,35 +1,69 @@
 # Deploying the Bone Age Tracker
 
-Static files. No build step, no server, no environment variables.
+No dependencies, no toolchain. `build.sh` is a file-copy script — it assembles
+`dist/` and stamps the service worker. Run it locally any time:
 
-Files that matter:
-
-```
-_headers                      (repo root) security headers + CSP
-_redirects                    (repo root) the permanent QR-code path
-tools/bone-age/index.html     the app
-tools/bone-age/sw.js          offline support
-tools/bone-age/manifest.webmanifest
-tools/bone-age/icon-*.png, apple-touch-icon.png
+```sh
+sh build.sh      # -> dist/, prints the cache version it stamped
 ```
 
 ---
 
-## Cloudflare Pages
+## Cloudflare Pages — the settings that matter
 
-1. Pages → **Create a project** → connect the repo.
-2. Framework preset **None**, build command **empty**, output directory **`/`**.
-3. Deploy. `_headers` and `_redirects` are picked up automatically from the output root.
+Pages → **Create a project** → **Connect to Git** → pick the repo, then:
 
-Netlify is identical and reads the same two files.
+| Field | Value |
+|---|---|
+| Framework preset | **None** |
+| Build command | **`sh build.sh`** |
+| Build output directory | **`dist`** |
+| Production branch | **see the warning below** |
+| Environment variables | none |
 
-Verify after the first deploy:
+Netlify is identical and reads the same `_headers` and `_redirects`.
 
-```bash
-curl -sI https://<domain>/tools/bone-age/ | grep -i content-security-policy
-curl -sI https://<domain>/tools/bone-age/sw.js | grep -ci content-security-policy   # must print 1
-curl -sI https://<domain>/bone-age                                                  # must be 302
+### ⚠ Set the production branch before the first deploy
+
+Pages defaults the production branch to the repo's **default branch**. At the time
+of writing this repo's default is `master`, and `master` does not contain
+`tools/bone-age` at all.
+
+Connect it without thinking and you get: production = the old portfolio, and this
+app living only as a *preview* deployment on a random `*.pages.dev` subdomain — which
+is not where you want a URL that is about to be printed in a book.
+
+Do one of these **first**:
+
+- merge the work into `master` and leave the production branch as `master`, or
+- set **Settings → Builds & deployments → Production branch** to the branch that
+  actually holds the app.
+
+### Verify the first deploy
+
+```sh
+curl -sI https://<domain>/tools/bone-age/       | grep -i content-security-policy
+curl -sI https://<domain>/tools/bone-age/sw.js  | grep -ci content-security-policy   # must print 1
+curl -sI https://<domain>/bone-age              | grep -i location                   # must be a 302
+curl -sI https://<domain>/tools/bone-age/ARCHITECTURE.md                             # must be 404
 ```
+
+---
+
+## What is published, and what is not
+
+`build.sh` lists every public file **explicitly**. Nothing is copied by wildcard over
+a whole directory, so adding a file to the repo never publishes it by accident.
+
+Deliberately **not** published:
+
+- `ARCHITECTURE.md`, `DEPLOY.md` — internal. They discuss IP ownership and commercial
+  terms; deploying the repo root would put them at a guessable public URL.
+- `Portfolio.html`, `stylesheet.css`, `jscript.js` — unrelated to this tool and must
+  not appear on the publisher's domain.
+
+If you add a file the public needs, add a `cp` line for it **and** a precache entry in
+`sw.js`.
 
 ---
 
@@ -43,7 +77,7 @@ enforces the **intersection**, not the more specific one.
 So if the CSP lived on `/*`, its `connect-src 'none'` would *also* apply to `sw.js`,
 intersect with the worker's `connect-src 'self'`, and come out as `'none'` — the
 service worker would install and then silently fail to cache anything. Offline would
-just quietly not work, with no error anyone would notice.
+just quietly not work, with nothing in the console to say why.
 
 That is why `_headers` puts the CSP only on the specific paths that need it, and why
 `/*` carries the non-CSP headers only. **If you add a page, give it its own CSP line.
@@ -57,21 +91,26 @@ because the broken copy is what serves the request for its own replacement.
 
 ---
 
-## Changing the app after it is live
+## Cache versioning is automatic — do not do it by hand
 
-The cache name in `sw.js` is the version marker:
+`sw.js` in the repo reads:
 
 ```js
-var CACHE = "boneage-v1";
+var CACHE = "boneage-__CACHE_VERSION__";
 ```
 
-**Bump it on every deploy that changes `index.html`** (`boneage-v2`, and so on). The
-`activate` handler deletes every cache that is not the current one, so the bump is what
-evicts the old shell. Forget it and returning users keep the old page indefinitely.
+`build.sh` replaces the placeholder with a SHA-256 prefix of every file the worker
+precaches, and fails the build if the substitution did not happen. So the cache name
+changes exactly when the contents change, and never otherwise.
+
+This matters because the `activate` handler deletes every cache that is not the
+current one — the version change *is* what evicts the old shell from returning users'
+devices. As a manual step it was a footgun: forget it and returning users keep the old
+page indefinitely, while the person deploying sees the new one and notices nothing.
 
 The worker does not call `skipWaiting()`, so a new version takes over on the next
-launch rather than swapping under a tab with a half-typed reading in the form. That is
-deliberate — for this app a few minutes of staleness beats losing someone's input.
+launch rather than swapping under a tab holding a half-typed reading. That is
+deliberate — a few minutes of staleness beats losing someone's input.
 
 ---
 
@@ -93,21 +132,25 @@ Rules, all of which exist because **a printed QR code cannot be recalled**:
 - test it from a real phone camera, on a hospital guest network, before the chapter
   goes to press
 
+### Custom domain
+
+Pages project → **Custom domains** → add the publisher's hostname, then create the
+CNAME they give you in that domain's DNS. TLS is issued automatically. Do this
+**before** the QR code is generated, so the printed URL is the real one from day one.
+
 ---
 
-## If the app is deployed on its own domain
+## Deploying without Git integration
 
-If `tools/bone-age/` becomes the site root, move `_headers` and `_redirects` alongside
-it and strip the prefix from every path:
+If the repo must stay disconnected from Cloudflare:
 
-```
-/                     →  the page CSP
-/index.html           →  the page CSP
-/sw.js                →  the worker CSP, no-store
+```sh
+sh build.sh
+npx wrangler pages deploy dist --project-name=<project>
 ```
 
-`index.html`, `sw.js` and `manifest.webmanifest` use relative URLs throughout, so
-nothing inside them needs editing.
+Same output, same headers. Needs a Cloudflare API token with the
+**Cloudflare Pages: Edit** permission.
 
 ---
 
@@ -116,7 +159,7 @@ nothing inside them needs editing.
 In Chrome DevTools on the deployed URL:
 
 - **Application → Service workers** — status `activated and is running`
-- **Application → Cache storage** — `boneage-v1` holds 7 entries
+- **Application → Cache storage** — one `boneage-<hash>` cache holding 7 entries
 - **Application → Manifest** — no errors, installability green
 - **Network → tick Offline → reload** — the page still loads with saved data intact
 - **Console** — run `fetch('https://example.com')`. It must be refused by CSP. That
