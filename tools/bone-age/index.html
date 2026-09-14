@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Bone Age Tracker</title>
+<meta name="description" content="Track bone age x-ray results against chronological age. Everything stays on your device.">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface-1:#fcfcfb;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --series-1:#2a78d6; --field:#ffffff; --field-border:#c9c8c1;
+  --accent-soft:rgba(42,120,214,.10); --danger:#d03b3b;
+  --r:10px; --pad:16px;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface-1:#1a1a19;
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --series-1:#3987e5; --field:#111110; --field-border:#3c3c39;
+    --accent-soft:rgba(57,135,229,.16); --danger:#e66767;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface-1:#1a1a19;
+  --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --series-1:#3987e5; --field:#111110; --field-border:#3c3c39;
+  --accent-soft:rgba(57,135,229,.16); --danger:#e66767;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:var(--sans); background:var(--plane); color:var(--text-primary);
+  font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:940px; margin:0 auto; padding-block:20px 56px; padding-left:16px; padding-right:16px}
+
+h1{font-size:1.5rem; line-height:1.25; margin:0 0 4px}
+h2{font-size:1.0625rem; margin:0 0 2px}
+p{margin:0 0 12px}
+.sub{color:var(--text-secondary); font-size:.9375rem; margin:0 0 20px}
+.hint{color:var(--text-muted); font-size:.8125rem; margin:4px 0 0}
+
+.card{
+  background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r);
+  padding:var(--pad); margin:0 0 16px;
+}
+.card > h2 + p.hint{margin-bottom:14px}
+
+/* ---------- forms ---------- */
+.grid{display:grid; gap:12px}
+@media (min-width:560px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} }
+label{display:block; font-size:.8125rem; font-weight:600; color:var(--text-secondary); margin:0 0 5px}
+input,select,textarea{
+  width:100%; font:inherit; font-size:1rem; color:var(--text-primary);
+  background:var(--field); border:1px solid var(--field-border); border-radius:8px;
+  padding:11px 12px; min-height:44px;
+}
+textarea{min-height:64px; resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--series-1); outline-offset:2px;
+}
+input[aria-invalid="true"]{border-color:var(--danger)}
+.err{color:var(--danger); font-size:.8125rem; margin:5px 0 0; display:none}
+.err.on{display:block}
+
+button{
+  font:inherit; font-weight:600; font-size:.9375rem; min-height:44px;
+  padding:10px 16px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--field-border); background:var(--field); color:var(--text-primary);
+}
+button.primary{background:var(--series-1); border-color:var(--series-1); color:#fff}
+button.link{background:none; border:none; color:var(--text-secondary); text-decoration:underline; padding:8px 4px; min-height:36px; font-weight:400; font-size:.8125rem}
+button.link.danger{color:var(--danger)}
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.row.end{justify-content:flex-end}
+
+/* ---------- summary ---------- */
+.hero{font-size:1.75rem; line-height:1.2; font-weight:650; margin:0 0 4px; letter-spacing:-.01em}
+.hero .unit{font-weight:450; color:var(--text-secondary); font-size:1.125rem}
+.facts{display:grid; gap:10px 20px; margin:14px 0 0; padding:14px 0 0; border-top:1px solid var(--border)}
+@media (min-width:560px){ .facts{grid-template-columns:1fr 1fr} }
+.fact dt{font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin:0 0 1px}
+.fact dd{margin:0; font-size:.9375rem; font-variant-numeric:tabular-nums}
+
+/* ---------- chart ---------- */
+.sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; border:0}
+.chartbox{position:relative; max-width:520px}
+svg.chart{display:block; width:100%; height:auto; max-width:100%; overflow:visible}
+.tip{
+  position:absolute; pointer-events:none; opacity:0; transition:opacity .09s;
+  background:var(--surface-1); border:1px solid var(--border); border-radius:8px;
+  padding:8px 10px; font-size:.8125rem; line-height:1.4; box-shadow:0 4px 14px rgba(0,0,0,.14);
+  white-space:nowrap; z-index:5; transform:translate(-50%,-100%); margin-top:-10px;
+}
+.tip.on{opacity:1}
+.tip b{display:block; font-size:.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin:0 0 2px}
+.tip .n{font-variant-numeric:tabular-nums}
+
+/* ---------- table ---------- */
+.tablescroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%; font-size:.8125rem; font-variant-numeric:tabular-nums}
+th,td{text-align:right; padding:8px 7px; border-bottom:1px solid var(--border); white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.6875rem; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted);
+   font-weight:600; vertical-align:bottom; white-space:normal; max-width:74px; line-height:1.3}
+td.note{white-space:normal; text-align:left; min-width:130px; color:var(--text-secondary)}
+tr:last-child td{border-bottom:none}
+
+/* Below 640px a 9-column table hides the column that matters most, so each
+   reading becomes a stacked card with its labels inline. */
+@media (max-width:639px){
+  .tablescroll{overflow-x:visible}
+  table,tbody,tr,td{display:block; width:100%}
+  thead{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+  tr{border:1px solid var(--border); border-radius:8px; padding:8px 12px; margin:0 0 10px}
+  tr:last-child{margin-bottom:0}
+  td{border:none; border-bottom:1px solid var(--border); padding:7px 0; text-align:right;
+     white-space:normal; display:flex; justify-content:space-between; align-items:baseline; gap:14px}
+  td:last-child{border-bottom:none}
+  td:empty{display:none}
+  td:before{
+    content:attr(data-label); text-align:left; flex:0 1 auto;
+    font-size:.6875rem; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--text-muted); font-weight:600; line-height:1.6;
+  }
+  td.note{text-align:left; display:block}
+  td.note:before{display:block; margin-bottom:2px}
+  td.note:empty{display:none}   /* equal specificity to td.note - must come after it */
+  td.acts{justify-content:flex-end; gap:4px; padding-top:2px; border-bottom:none}
+  td.acts:before{content:none}
+}
+.empty{color:var(--text-muted); font-size:.9375rem; text-align:center; padding:28px 12px; margin:0}
+
+.print-only{display:none}
+.foot{color:var(--text-muted); font-size:.75rem; line-height:1.55; margin:28px 0 0}
+.foot strong{color:var(--text-secondary)}
+
+/* ---------- print ---------- */
+@media print{
+  :root{--plane:#fff; --surface-1:#fff; --text-primary:#000; --text-secondary:#333; --text-muted:#555;
+        --grid:#ddd; --axis:#999; --border:#ccc; --series-1:#15539b}
+  body{background:#fff; font-size:11pt}
+  .wrap{max-width:none; padding:0}
+  .no-print,.child-card{display:none !important}
+  .print-only{display:block; font-size:10.5pt; color:#000; margin:0 0 10px}
+  .sub{display:none}
+  h1{font-size:15pt; margin-bottom:2px}
+  .hero{font-size:16pt}
+  .card{border:1px solid #ccc; break-inside:avoid; margin-bottom:12px; padding:12px}
+  .chartbox{max-width:400px}
+  .tablescroll{overflow:visible}
+  table{font-size:8.5pt; table-layout:fixed; width:100%}
+  th,td{padding:5px 5px; white-space:normal; word-break:break-word}
+  th{font-size:6.5pt}
+  td.note{min-width:0}
+  .foot{margin-top:14px}
+  a[href]:after{content:""}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Bone Age Tracker</h1>
+  <p class="sub">Enter each bone age x-ray result as you get it. This page works out how far ahead or behind
+  the bone age is, and how fast it is moving, so you can bring one clear page to the next appointment.</p>
+
+  <!-- ---------------- child ---------------- -->
+  <p class="print-only" id="printHead"></p>
+
+  <section class="card child-card">
+    <h2>About your child</h2>
+    <p class="hint">Needed once. Nothing here leaves your device.</p>
+    <div class="grid g2">
+      <div>
+        <label for="name">Child's name <span style="font-weight:400">(optional)</span></label>
+        <input id="name" type="text" autocomplete="off" placeholder="e.g. Sam">
+      </div>
+      <div>
+        <label for="dob">Date of birth</label>
+        <input id="dob" type="date" required>
+        <p class="err" id="dobErr"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- add reading ---------------- -->
+  <section class="card no-print">
+    <h2 id="formTitle">Add an x-ray result</h2>
+    <p class="hint">Copy the bone age exactly as the radiologist or endocrinologist reported it.</p>
+    <form id="form" novalidate>
+      <div class="grid g3">
+        <div>
+          <label for="xdate">Date of x-ray</label>
+          <input id="xdate" type="date" required>
+        </div>
+        <div>
+          <label for="byears">Bone age &mdash; years</label>
+          <input id="byears" type="number" inputmode="numeric" min="0" max="25" step="1" placeholder="7">
+        </div>
+        <div>
+          <label for="bmonths">Bone age &mdash; extra months</label>
+          <input id="bmonths" type="number" inputmode="numeric" min="0" max="11" step="1" placeholder="2">
+        </div>
+      </div>
+      <p class="hint">If the report says &ldquo;7 years 2 months&rdquo;, enter <strong>7</strong> and <strong>2</strong>.
+      If it says only &ldquo;7.2 years&rdquo;, enter <strong>7</strong> years and leave months blank.</p>
+      <p class="err" id="formErr"></p>
+      <div class="grid" style="margin-top:12px">
+        <div>
+          <label for="notes">Your notes <span style="font-weight:400">(optional)</span></label>
+          <textarea id="notes" placeholder="Which hospital, who read it, anything the doctor said."></textarea>
+        </div>
+      </div>
+      <div class="row end" style="margin-top:12px">
+        <button type="button" class="link" id="cancelEdit" hidden>Cancel</button>
+        <button type="submit" class="primary" id="submitBtn">Add result</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ---------------- summary ---------------- -->
+  <section class="card" id="summaryCard" hidden>
+    <h2 id="summaryTitle">Latest result</h2>
+    <p class="hero" id="hero"></p>
+    <p class="hint" id="heroSub"></p>
+    <dl class="facts" id="facts"></dl>
+  </section>
+
+  <!-- ---------------- chart ---------------- -->
+  <section class="card">
+    <h2>Bone age against chronological age</h2>
+    <p class="hint" id="chartHint">Each dot is one x-ray. The dashed line is where bone age equals chronological age.</p>
+    <div class="chartbox">
+      <svg class="chart" id="chart" viewBox="0 0 460 460" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="chartDesc"></svg>
+      <p id="chartDesc" class="sr-only">Bone age plotted against chronological age.</p>
+      <p class="empty" id="chartEmpty">Enter a date of birth and one x-ray result to see the graph.</p>
+      <div class="tip" id="tip" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- table ---------------- -->
+  <section class="card">
+    <h2>All results</h2>
+    <p class="hint">All three change columns are in months. A negative difference means the bone age is
+    behind chronological age.</p>
+    <div class="tablescroll" id="tableBox"></div>
+  </section>
+
+  <!-- ---------------- actions ---------------- -->
+  <section class="card no-print">
+    <h2>Save or share</h2>
+    <p class="hint">Your results live only in this browser. Save a copy of the file if you clear your browser,
+    change phones, or want to send it to another parent or carer.</p>
+    <div class="row" style="margin-top:12px">
+      <button type="button" class="primary" id="printBtn">Print / Save as PDF</button>
+      <button type="button" id="exportBtn">Save a backup file</button>
+      <button type="button" id="importBtn">Open a backup file</button>
+      <button type="button" id="csvBtn">Download CSV</button>
+      <input type="file" id="importInput" accept="application/json,.json" hidden>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button type="button" class="link danger" id="clearBtn">Erase everything on this device</button>
+    </div>
+  </section>
+
+  <p class="foot">
+    <strong>This page does not give medical advice.</strong> It only does the arithmetic on numbers you enter
+    and shows them on a graph. Bone age results must be interpreted by your child's doctor, who will weigh
+    them alongside growth, puberty stage and your child's diagnosis. What counts as expected varies a great
+    deal between conditions.<br><br>
+    <strong>Your privacy.</strong> Everything you type stays in this browser, on this device. Nothing is sent
+    to a server, there is no account, and no one else can see it &mdash; including whoever made this page.
+    Clearing your browser data will erase it, so keep a backup file.
+  </p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   Storage
+   ============================================================ */
+var KEY = "boneage.v1";
+var SCHEMA = 1;
+
+function blank(){ return { schemaVersion:SCHEMA, child:{name:"",dob:""}, readings:[], updatedAt:null }; }
+
+var state = blank();
+
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(!raw) return;
+    var d = JSON.parse(raw);
+    if(d && typeof d === "object" && Array.isArray(d.readings)) state = migrate(d);
+  }catch(e){ /* private mode, blocked storage, corrupt json - start empty */ }
+}
+function save(){
+  state.updatedAt = new Date().toISOString();
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ /* quota or blocked - page still works */ }
+}
+function migrate(d){
+  // Only one schema so far. Future versions branch here and never lose a reading.
+  d.schemaVersion = SCHEMA;
+  d.child = d.child || {name:"",dob:""};
+  d.readings = d.readings.filter(function(r){ return r && r.date; });
+  return d;
+}
+
+/* ============================================================
+   Dates and age maths
+   ============================================================ */
+
+/* Parse yyyy-mm-dd as a LOCAL date. new Date("2024-04-15") is parsed as UTC
+   and lands on the previous day west of Greenwich, which would shift every age. */
+function parseISO(s){
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+  if(!m) return null;
+  var y = +m[1], mo = +m[2]-1, da = +m[3];
+  var d = new Date(y, mo, da);
+  if(d.getFullYear()!==y || d.getMonth()!==mo || d.getDate()!==da) return null; // e.g. 31 February
+  d.setHours(0,0,0,0);
+  return d;
+}
+function todayISO(){
+  var d = new Date();
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+}
+function pad2(n){ return (n<10?"0":"") + n; }
+
+/* Exact age in years, using real calendar anniversaries.
+   Returns exactly 6 on the 6th birthday - dividing days by 365 or 365.25 does not. */
+function ageYears(dob, on){
+  var y = on.getFullYear() - dob.getFullYear();
+  var anniv = new Date(dob.getFullYear()+y, dob.getMonth(), dob.getDate());
+  if(anniv > on) y--;
+  var prev = new Date(dob.getFullYear()+y,   dob.getMonth(), dob.getDate());
+  var next = new Date(dob.getFullYear()+y+1, dob.getMonth(), dob.getDate());
+  return y + (on - prev) / (next - prev);
+}
+
+/* ============================================================
+   Derivation - the single source of truth for every number shown
+   ============================================================ */
+function derive(){
+  var dob = parseISO(state.child.dob);
+  var rows = state.readings
+    .map(function(r){
+      var d = parseISO(r.date);
+      var ba = (num(r.baYears) || 0) + (num(r.baMonths) || 0)/12;
+      return { id:r.id, date:r.date, dateObj:d, notes:r.notes || "",
+               ba: ba, ca: (dob && d) ? ageYears(dob, d) : null };
+    })
+    .filter(function(r){ return r.dateObj; })
+    .sort(function(a,b){ return a.dateObj - b.dateObj; });
+
+  for(var i=0; i<rows.length; i++){
+    var r = rows[i], p = rows[i-1];
+    r.n = i + 1;
+    r.delta = (r.ca === null) ? null : (r.ba - r.ca) * 12;   // months; negative = behind
+    r.dCA = (p && p.ca !== null && r.ca !== null) ? (r.ca - p.ca) * 12 : null;
+    r.dBA = p ? (r.ba - p.ba) * 12 : null;
+    r.ratio = (r.dCA && r.dCA > 0.5 && r.dBA !== null) ? r.dBA / r.dCA : null;
+  }
+  return rows;
+}
+function num(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; }
+
+/* ============================================================
+   Formatting
+   ============================================================ */
+function f1(n){ return (Math.round(n*10)/10).toFixed(1); }
+function f2(n){ return (Math.round(n*100)/100).toFixed(2); }
+
+/* 6.25 -> "6 yr 3 mo" */
+function yrMo(years){
+  if(years === null || !isFinite(years)) return "—";
+  var totalMonths = Math.round(years*12);
+  var y = Math.floor(totalMonths/12), m = totalMonths - y*12;
+  return y + " yr" + (m ? " " + m + " mo" : "");
+}
+/* months -> "5.4 months" or "1 yr 5 mo" once it gets long */
+function monthSpan(months){
+  var m = Math.abs(months);
+  if(m < 12) return f1(m) + " month" + (f1(m) === "1.0" ? "" : "s");
+  var y = Math.floor(Math.round(m)/12), r = Math.round(m) - y*12;
+  return y + " yr" + (r ? " " + r + " mo" : "");
+}
+function deltaPhrase(months){
+  if(months === null) return "—";
+  if(Math.abs(months) < 0.5) return "level with chronological age";
+  return monthSpan(months) + (months < 0 ? " behind" : " ahead of") + " chronological age";
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+/* ============================================================
+   Chart - one series, plus an identity reference line.
+   Both axes share one domain so the 45 degree line really is 45 degrees.
+   ============================================================ */
+var SVG_NS = "http://www.w3.org/2000/svg";
+function el(name, attrs, text){
+  var n = document.createElementNS(SVG_NS, name);
+  for(var k in attrs) if(attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+  if(text !== undefined) n.textContent = text;
+  return n;
+}
+
+function drawChart(rows){
+  var svg = document.getElementById("chart");
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  var plotted = rows.filter(function(r){ return r.ca !== null; });
+  /* Match the viewBox to the container's real pixel width so 1 SVG unit == 1 CSS
+     pixel. Otherwise every axis label shrinks with the chart on a phone. */
+  var boxW = document.querySelector(".chartbox").clientWidth || 460;
+  var side = Math.round(Math.max(280, Math.min(520, boxW)));
+  var W = side, H = side, L = 52, R = 14, T = 16, B = 46;
+
+  var emptyEl = document.getElementById("chartEmpty");
+  if(!plotted.length){
+    svg.hidden = true;
+    emptyEl.hidden = false;
+    emptyEl.textContent = state.child.dob
+      ? "Add an x-ray result to see the graph."
+      : "Enter a date of birth and one x-ray result to see the graph.";
+    document.getElementById("chartDesc").textContent = "No results entered yet.";
+    return;
+  }
+  svg.hidden = false;
+  emptyEl.hidden = true;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+  // shared domain across both axes
+  var vals = [];
+  plotted.forEach(function(r){ vals.push(r.ca, r.ba); });
+  var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  var span = Math.max(hi - lo, 1.5);
+  lo = Math.max(0, Math.floor(lo - span*0.18));
+  hi = Math.ceil(hi + span*0.18);
+  if(hi - lo < 2) hi = lo + 2;
+
+  var x = function(v){ return L + (v-lo)/(hi-lo) * (W-L-R); };
+  var y = function(v){ return H - B - (v-lo)/(hi-lo) * (H-T-B); };
+
+  var step = (hi-lo) <= 6 ? 1 : ((hi-lo) <= 14 ? 2 : 5);
+  var ticks = [];
+  for(var t = Math.ceil(lo/step)*step; t <= hi; t += step) ticks.push(t);
+
+  // grid + axis labels
+  var g = el("g", {"font-family":"var(--sans)", "font-size":11, fill:"var(--text-muted)"});
+  ticks.forEach(function(t){
+    g.appendChild(el("line", {x1:L, x2:W-R, y1:y(t), y2:y(t), stroke:"var(--grid)", "stroke-width":1}));
+    g.appendChild(el("line", {x1:x(t), x2:x(t), y1:T, y2:H-B, stroke:"var(--grid)", "stroke-width":1}));
+    g.appendChild(el("text", {x:L-9, y:y(t)+4, "text-anchor":"end"}, String(t)));
+    g.appendChild(el("text", {x:x(t), y:H-B+18, "text-anchor":"middle"}, String(t)));
+  });
+  svg.appendChild(g);
+
+  // axes
+  svg.appendChild(el("line", {x1:L, x2:W-R, y1:H-B, y2:H-B, stroke:"var(--axis)", "stroke-width":1}));
+  svg.appendChild(el("line", {x1:L, x2:L, y1:T, y2:H-B, stroke:"var(--axis)", "stroke-width":1}));
+
+  // axis titles
+  svg.appendChild(el("text", {x:L+(W-L-R)/2, y:H-6, "text-anchor":"middle", fill:"var(--text-secondary)",
+    "font-size":12, "font-family":"var(--sans)", "font-weight":600}, "Chronological age (years)"));
+  var yt = el("text", {x:14, y:T+(H-T-B)/2, "text-anchor":"middle", fill:"var(--text-secondary)",
+    "font-size":12, "font-family":"var(--sans)", "font-weight":600,
+    transform:"rotate(-90 14 " + (T+(H-T-B)/2) + ")"}, "Bone age (years)");
+  svg.appendChild(yt);
+
+  // identity reference line - dashed because it IS a reference, not a gridline
+  svg.appendChild(el("line", {x1:x(lo), y1:y(lo), x2:x(hi), y2:y(hi),
+    stroke:"var(--axis)", "stroke-width":1.5, "stroke-dasharray":"5 4"}));
+  var lblX = x(lo + (hi-lo)*0.62), lblY = y(lo + (hi-lo)*0.62) - 8;
+  var lbl = el("text", {x:lblX, y:lblY, "text-anchor":"middle", fill:"var(--text-muted)",
+    "font-size":11, "font-family":"var(--sans)",
+    stroke:"var(--surface-1)", "stroke-width":3, "paint-order":"stroke",
+    transform:"rotate(-45 " + lblX + " " + lblY + ")"}, "bone age = chronological age");
+  svg.appendChild(lbl);
+
+  // series line
+  if(plotted.length > 1){
+    var d = plotted.map(function(r,i){ return (i?"L":"M") + f2(x(r.ca)) + " " + f2(y(r.ba)); }).join(" ");
+    svg.appendChild(el("path", {d:d, fill:"none", stroke:"var(--series-1)", "stroke-width":2,
+      "stroke-linejoin":"round", "stroke-linecap":"round"}));
+  }
+
+  // markers - 2px surface ring so overlapping points stay separable
+  plotted.forEach(function(r, i){
+    var cx = x(r.ca), cy = y(r.ba);
+    svg.appendChild(el("circle", {cx:cx, cy:cy, r:5.5,
+      fill:"var(--series-1)", stroke:"var(--surface-1)", "stroke-width":2}));
+
+    // generous invisible hit target - never make anyone land on a 5px dot
+    var hit = el("circle", {cx:cx, cy:cy, r:16, fill:"transparent",
+      tabindex:"0", role:"img",
+      "aria-label":"X-ray " + r.n + ", " + fmtDate(r.dateObj) + ". Chronological age " + yrMo(r.ca) +
+                   ", bone age " + yrMo(r.ba) + ", " + deltaPhrase(r.delta) + "."});
+    hit.style.cursor = "pointer";
+    ["mouseenter","focus"].forEach(function(ev){ hit.addEventListener(ev, function(){ showTip(r, cx, cy, W, H); }); });
+    ["mouseleave","blur"].forEach(function(ev){ hit.addEventListener(ev, hideTip); });
+    svg.appendChild(hit);
+  });
+
+  // direct-label the latest point only, nudged so it never leaves the plot
+  var last = plotted[plotted.length-1];
+  var lx = x(last.ca), ly = y(last.ba) - 13, anchor = "middle";
+  var halfText = 40;
+  if(lx + halfText > W - R){ anchor = "end";   lx = Math.min(lx + 9, W - R); }
+  else if(lx - halfText < L){ anchor = "start"; lx = Math.max(lx - 9, L); }
+  if(ly < T + 12) ly = y(last.ba) + 23;
+  svg.appendChild(el("text", {
+    x: lx, y: ly, "text-anchor":anchor,
+    fill:"var(--text-primary)", "font-size":11.5, "font-family":"var(--sans)", "font-weight":600,
+    stroke:"var(--surface-1)", "stroke-width":3.5, "paint-order":"stroke"
+  }, "latest · " + yrMo(last.ba)));
+
+  document.getElementById("chartDesc").textContent =
+    plotted.length + " x-ray result" + (plotted.length>1?"s":"") +
+    ". Latest: chronological age " + yrMo(last.ca) + ", bone age " + yrMo(last.ba) +
+    ", " + deltaPhrase(last.delta) + ". Full figures are in the results table below.";
+}
+
+var tipEl = document.getElementById("tip");
+function showTip(r, cx, cy, W, H){
+  var box = document.querySelector(".chartbox");
+  tipEl.innerHTML =
+    "<b>" + esc(fmtDate(r.dateObj)) + "</b>" +
+    "<span class='n'>Chronological age " + yrMo(r.ca) + "<br>" +
+    "Bone age " + yrMo(r.ba) + "<br>" +
+    esc(deltaPhrase(r.delta)) + "</span>";
+  tipEl.style.left = (cx / W * box.clientWidth) + "px";
+  tipEl.style.top  = (cy / H * box.clientHeight) + "px";
+  tipEl.classList.add("on");
+}
+function hideTip(){ tipEl.classList.remove("on"); }
+
+function fmtDate(d){
+  if(!d) return "—";
+  return d.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+function render(){
+  var rows = derive();
+  drawChart(rows);
+  renderSummary(rows);
+  renderTable(rows);
+}
+
+function renderSummary(rows){
+  var card = document.getElementById("summaryCard");
+  var withCA = rows.filter(function(r){ return r.ca !== null; });
+  if(!withCA.length){ card.hidden = true; return; }
+  card.hidden = false;
+
+  var last = withCA[withCA.length-1];
+  var who = state.child.name ? esc(state.child.name) + "'s bone age" : "Bone age";
+
+  document.getElementById("summaryTitle").textContent =
+    "Latest result · " + fmtDate(last.dateObj);
+
+  var hero = document.getElementById("hero");
+  if(Math.abs(last.delta) < 0.5){
+    hero.innerHTML = who + " is <span class='unit'>level with chronological age</span>";
+  }else{
+    hero.innerHTML = who + " is " + monthSpan(last.delta) +
+      " <span class='unit'>" + (last.delta < 0 ? "behind" : "ahead of") + " chronological age</span>";
+  }
+
+  document.getElementById("heroSub").textContent =
+    "Chronological age " + yrMo(last.ca) + " · bone age " + yrMo(last.ba) + ".";
+
+  document.getElementById("printHead").textContent =
+    (state.child.name ? state.child.name + " · " : "") +
+    "date of birth " + fmtDate(parseISO(state.child.dob)) +
+    " · printed " + fmtDate(new Date());
+
+  var facts = [];
+  if(last.dCA !== null && last.dBA !== null){
+    facts.push(["Since the previous x-ray",
+      "Calendar time moved on " + f1(last.dCA) + " months; bone age moved on " + f1(last.dBA) + " months."]);
+  }
+  if(last.ratio !== null){
+    facts.push(["Rate of bone age change",
+      f2(last.ratio) + "× calendar time — bone age is " +
+      (last.ratio > 1.05 ? "moving faster than" : last.ratio < 0.95 ? "moving slower than" : "keeping pace with") +
+      " the calendar."]);
+  }
+  if(withCA.length > 1){
+    var first = withCA[0];
+    var drift = last.delta - first.delta;
+    facts.push(["Across all " + withCA.length + " x-rays",
+      "The gap has " + (Math.abs(drift) < 0.5 ? "stayed about the same"
+        : (drift > 0 ? "closed by " + f1(drift) + " months" : "widened by " + f1(-drift) + " months")) +
+      " since " + fmtDate(first.dateObj) + "."]);
+  }
+  facts.push(["Bring this to the appointment",
+    "Use Print / Save as PDF for a one-page copy of the graph and table.", "no-print"]);
+
+  document.getElementById("facts").innerHTML = facts.map(function(f){
+    return "<div class='fact " + (f[2] || "") + "'><dt>" + esc(f[0]) +
+           "</dt><dd>" + esc(f[1]) + "</dd></div>";
+  }).join("");
+}
+
+function renderTable(rows){
+  var box = document.getElementById("tableBox");
+  if(!rows.length){
+    box.innerHTML = "<p class='empty'>No x-ray results yet.</p>";
+    return;
+  }
+  var noDob = !parseISO(state.child.dob);
+  var head = "<tr><th>X-ray</th><th>Date</th><th>Chronological age</th><th>Bone age</th>" +
+             "<th>Difference</th><th>Calendar change</th><th>Bone age change</th>" +
+             "<th>Notes</th><th class='no-print'></th></tr>";
+  var body = rows.map(function(r){
+    return "<tr>" +
+      "<td data-label='X-ray'>" + r.n + "</td>" +
+      "<td data-label='Date'>" + esc(fmtDate(r.dateObj)) + "</td>" +
+      "<td data-label='Chronological age'>" + (r.ca === null ? "<span style='color:var(--text-muted)'>needs date of birth</span>"
+                              : esc(yrMo(r.ca)) + " <span style='color:var(--text-muted)'>(" + f2(r.ca) + ")</span>") + "</td>" +
+      "<td data-label='Bone age'>" + esc(yrMo(r.ba)) + " <span style='color:var(--text-muted)'>(" + f2(r.ba) + ")</span></td>" +
+      "<td data-label='Difference (months)'>" + (r.delta === null ? "—" : (r.delta > 0 ? "+" : "") + f1(r.delta)) + "</td>" +
+      "<td data-label='Calendar change (months)'>" + (r.dCA === null ? "—" : f1(r.dCA)) + "</td>" +
+      "<td data-label='Bone age change (months)'>" + (r.dBA === null ? "—" : (r.dBA > 0 ? "+" : "") + f1(r.dBA)) + "</td>" +
+      "<td class='note' data-label='Notes'>" + esc(r.notes) + "</td>" +
+      "<td class='no-print acts'><button type='button' class='link' data-edit='" + esc(r.id) + "'>Edit</button>" +
+      "<button type='button' class='link danger' data-del='" + esc(r.id) + "'>Delete</button></td>" +
+    "</tr>";
+  }).join("");
+
+  box.innerHTML = (noDob ? "<p class='hint' style='margin-bottom:10px'>Add a date of birth above to work out chronological age and the difference.</p>" : "") +
+    "<table><thead>" + head + "</thead><tbody>" + body + "</tbody></table>";
+}
+
+/* ============================================================
+   Events
+   ============================================================ */
+var nameEl   = document.getElementById("name");
+var dobEl    = document.getElementById("dob");
+var dobErr   = document.getElementById("dobErr");
+var formEl   = document.getElementById("form");
+var formErr  = document.getElementById("formErr");
+var xdateEl  = document.getElementById("xdate");
+var byearsEl = document.getElementById("byears");
+var bmonthsEl= document.getElementById("bmonths");
+var notesEl  = document.getElementById("notes");
+var editId   = null;
+
+function showErr(msg){
+  formErr.textContent = msg;
+  formErr.classList.add("on");
+}
+function clearErr(){ formErr.classList.remove("on"); formErr.textContent = ""; }
+
+nameEl.addEventListener("input", function(){
+  state.child.name = nameEl.value.trim(); save(); renderSummary(derive());
+});
+
+dobEl.addEventListener("change", function(){
+  var d = parseISO(dobEl.value);
+  dobErr.classList.remove("on");
+  dobEl.removeAttribute("aria-invalid");
+  if(dobEl.value && !d){
+    dobErr.textContent = "That date does not exist. Please check it."; dobErr.classList.add("on");
+    dobEl.setAttribute("aria-invalid","true"); return;
+  }
+  if(d && d > new Date()){
+    dobErr.textContent = "Date of birth cannot be in the future."; dobErr.classList.add("on");
+    dobEl.setAttribute("aria-invalid","true"); return;
+  }
+  state.child.dob = dobEl.value; save(); render();
+});
+
+formEl.addEventListener("submit", function(e){
+  e.preventDefault();
+  clearErr();
+
+  var xd = parseISO(xdateEl.value);
+  if(!xd){ showErr("Please enter the date of the x-ray."); xdateEl.focus(); return; }
+  if(xd > new Date()){ showErr("The x-ray date is in the future. Please check it."); xdateEl.focus(); return; }
+
+  var dob = parseISO(state.child.dob);
+  if(dob && xd < dob){ showErr("The x-ray date is before your child's date of birth. Please check both dates."); xdateEl.focus(); return; }
+
+  var yv = byearsEl.value.trim(), mv = bmonthsEl.value.trim();
+  if(yv === "" && mv === ""){ showErr("Please enter the bone age from the report."); byearsEl.focus(); return; }
+
+  var yrs = yv === "" ? 0 : parseFloat(yv);
+  var mos = mv === "" ? 0 : parseFloat(mv);
+  if(!isFinite(yrs) || yrs < 0 || yrs > 25){ showErr("Bone age in years should be a number between 0 and 25."); byearsEl.focus(); return; }
+  if(!isFinite(mos) || mos < 0 || mos > 11){
+    showErr("Extra months should be between 0 and 11. If the report gave a whole number of months, put the years in the first box.");
+    bmonthsEl.focus(); return;
+  }
+  if(dob){
+    var ca = ageYears(dob, xd);
+    if(Math.abs((yrs + mos/12) - ca) > 6){
+      showErr("That bone age is more than 6 years away from your child's age on that date (" + yrMo(ca) +
+              "). Please check you have entered years, not months.");
+      byearsEl.focus(); return;
+    }
+  }
+
+  var dupe = state.readings.filter(function(r){ return r.date === xdateEl.value && r.id !== editId; });
+  if(dupe.length){ showErr("There is already a result saved for that date. Edit that one instead, or use a different date."); xdateEl.focus(); return; }
+
+  if(editId){
+    state.readings.forEach(function(r){
+      if(r.id === editId){
+        r.date = xdateEl.value; r.baYears = yrs; r.baMonths = mos; r.notes = notesEl.value.trim();
+      }
+    });
+  }else{
+    state.readings.push({
+      id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      date: xdateEl.value, baYears: yrs, baMonths: mos, notes: notesEl.value.trim()
+    });
+  }
+  save();
+  resetForm();
+  render();
+});
+
+function resetForm(){
+  editId = null;
+  formEl.reset();
+  clearErr();
+  document.getElementById("formTitle").textContent = "Add an x-ray result";
+  document.getElementById("submitBtn").textContent = "Add result";
+  document.getElementById("cancelEdit").hidden = true;
+}
+document.getElementById("cancelEdit").addEventListener("click", resetForm);
+
+document.getElementById("tableBox").addEventListener("click", function(e){
+  var edit = e.target.getAttribute && e.target.getAttribute("data-edit");
+  var del  = e.target.getAttribute && e.target.getAttribute("data-del");
+
+  if(edit){
+    var r = state.readings.filter(function(x){ return x.id === edit; })[0];
+    if(!r) return;
+    editId = r.id;
+    xdateEl.value = r.date;
+    byearsEl.value = (r.baYears === 0 && r.baMonths) ? "" : r.baYears;
+    bmonthsEl.value = r.baMonths || "";
+    notesEl.value = r.notes || "";
+    document.getElementById("formTitle").textContent = "Edit x-ray result";
+    document.getElementById("submitBtn").textContent = "Save changes";
+    document.getElementById("cancelEdit").hidden = false;
+    clearErr();
+    document.getElementById("formTitle").scrollIntoView({behavior:"smooth", block:"center"});
+    xdateEl.focus({preventScroll:true});
+  }
+
+  if(del){
+    var row = state.readings.filter(function(x){ return x.id === del; })[0];
+    if(!row) return;
+    if(!confirm("Delete the result from " + fmtDate(parseISO(row.date)) + "? This cannot be undone.")) return;
+    state.readings = state.readings.filter(function(x){ return x.id !== del; });
+    if(editId === del) resetForm();
+    save(); render();
+  }
+});
+
+/* ---------- save / share ---------- */
+document.getElementById("printBtn").addEventListener("click", function(){ hideTip(); window.print(); });
+
+function downloadBlob(text, filename, type){
+  var blob = new Blob([text], {type:type});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function slug(){
+  var s = (state.child.name || "bone-age").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  return (s || "bone-age") + "-" + todayISO();
+}
+
+document.getElementById("exportBtn").addEventListener("click", function(){
+  downloadBlob(JSON.stringify(state, null, 2), slug() + ".boneage.json", "application/json");
+});
+
+document.getElementById("csvBtn").addEventListener("click", function(){
+  var rows = derive();
+  var head = ["X-ray","Date","Chronological age (years)","Bone age (years)","Difference (months)",
+              "Calendar change (months)","Bone age change (months)","Notes"];
+  var lines = [head].concat(rows.map(function(r){
+    return [r.n, r.date, r.ca === null ? "" : f2(r.ca), f2(r.ba),
+            r.delta === null ? "" : f1(r.delta),
+            r.dCA === null ? "" : f1(r.dCA),
+            r.dBA === null ? "" : f1(r.dBA), r.notes];
+  }));
+  var csv = lines.map(function(cols){
+    return cols.map(function(c){
+      c = String(c === null || c === undefined ? "" : c);
+      return /[",\n]/.test(c) ? '"' + c.replace(/"/g,'""') + '"' : c;
+    }).join(",");
+  }).join("\r\n");
+  downloadBlob("﻿" + csv, slug() + ".csv", "text/csv;charset=utf-8");
+});
+
+document.getElementById("importBtn").addEventListener("click", function(){
+  document.getElementById("importInput").click();
+});
+document.getElementById("importInput").addEventListener("change", function(e){
+  var file = e.target.files && e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var d = JSON.parse(reader.result);
+      if(!d || !Array.isArray(d.readings)) throw new Error("shape");
+      if(state.readings.length && !confirm("This will replace the " + state.readings.length +
+         " result(s) currently on this device. Continue?")) return;
+      state = migrate(d);
+      nameEl.value = state.child.name || "";
+      dobEl.value  = state.child.dob  || "";
+      save(); resetForm(); render();
+    }catch(err){
+      alert("That file could not be read. Please choose a backup file saved from this page (it ends in .boneage.json).");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("clearBtn").addEventListener("click", function(){
+  if(!confirm("Erase your child's details and all x-ray results from this device? This cannot be undone. Save a backup file first if you want to keep them.")) return;
+  state = blank();
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  nameEl.value = ""; dobEl.value = "";
+  resetForm(); render();
+});
+
+/* ---------- boot ---------- */
+load();
+nameEl.value = state.child.name || "";
+dobEl.value  = state.child.dob  || "";
+dobEl.max = todayISO();
+xdateEl.max = todayISO();
+render();
+var resizeTimer = null;
+window.addEventListener("resize", function(){
+  hideTip();
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function(){ drawChart(derive()); }, 150);
+});
+window.addEventListener("beforeprint", function(){ hideTip(); drawChart(derive()); });
+
+})();
+</script>
+</body>
+</html>
